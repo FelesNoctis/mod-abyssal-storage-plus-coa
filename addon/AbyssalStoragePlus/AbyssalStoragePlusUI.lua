@@ -53,6 +53,7 @@ local CATEGORY_ORDER = {
     "Cloth",
     "Leather",
     "Metal & Stone",
+    "Wood & Lumber",
     "Herbs",
     "Elemental",
     "Enchanting",
@@ -68,6 +69,7 @@ local function GetItemCategory(itemType, itemSubType)
     if itemSubType == "Cloth" then return "Cloth" end
     if itemSubType == "Leather" then return "Leather" end
     if itemSubType == "Metal & Stone" then return "Metal & Stone" end
+    if itemSubType == "Wood & Lumber" then return "Wood & Lumber" end
     if itemSubType == "Herb" then return "Herbs" end
     if itemSubType == "Elemental" then return "Elemental" end
     if itemSubType == "Enchanting" then return "Enchanting" end
@@ -77,6 +79,7 @@ end
 local PROFESSION_ORDER = {
     "Alchemy",
     "Blacksmithing",
+    "Woodworking",
     "Cooking",
     "Enchanting",
     "Engineering",
@@ -91,6 +94,7 @@ local PROFESSION_ICONS = {
     All = "Interface\\Icons\\INV_Misc_Bag_10",
     Alchemy = "Interface\\Icons\\Trade_Alchemy",
     Blacksmithing = "Interface\\Icons\\Trade_BlackSmithing",
+    Woodworking = "Interface\\Icons\\inv_tradeskillitem_03",
     Cooking = "Interface\\Icons\\INV_Misc_Food_15",
     Enchanting = "Interface\\Icons\\Trade_Engraving",
     Engineering = "Interface\\Icons\\Trade_Engineering",
