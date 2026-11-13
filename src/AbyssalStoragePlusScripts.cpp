@@ -3,6 +3,10 @@
 #include "ChatCommand.h"
 #include "Config.h"
 #include "DatabaseEnv.h"
+#include "Group.h"
+#ifdef MOD_PLAYERBOTS
+#include "PlayerbotMgr.h"
+#endif
 #include "Item.h"
 #include "ObjectMgr.h"
 #include "Player.h"
@@ -15,6 +19,7 @@
 #include "WorldSession.h"
 #include <ctime>
 #include <sstream>
+#include <unordered_map>
 
 // Build a clickable item link like "|cff1eff00|Hitem:2589:0:0:0:0:0:0:0:0:0|h[Linen Cloth]|h|r"
 static std::string BuildItemLink(uint32 itemEntry)
@@ -180,6 +185,7 @@ public:
     void OnAfterConfigLoad(bool /*reload*/) override
     {
         sAbyssalStoragePlusMgr->SetEnabled(sConfigMgr->GetOption<bool>("AbyssalStoragePlus.Enable", true));
+        sPartyAltBotDepositEnabled->SetEnabled(sConfigMgr->GetOption<bool>("AbyssalStoragePlus.PartyAltBotDeposit", false));
     }
 };
 
@@ -724,6 +730,142 @@ public:
     }
 };
 
+// Deposit eligible materials belonging to one character.
+// The destination account must match the character's own account.
+static uint32 DepositAllEligibleMaterials(Player* player, uint32 accountId)
+{
+    if (!player || !player->GetSession() ||
+        player->GetSession()->GetAccountId() != accountId)
+        return 0;
+
+    // Collect item totals before destroying anything.
+    std::unordered_map<uint32, uint32> toDeposit;
+
+    // Preserve materials required by active quests.
+    std::unordered_map<uint32, uint32> questReserved;
+    sAbyssalStoragePlusMgr->GetQuestReservedCounts(
+        player, questReserved);
+
+    // Equipped bags.
+    for (uint8 bag = INVENTORY_SLOT_BAG_START;
+         bag < INVENTORY_SLOT_BAG_END; ++bag)
+    {
+        if (Bag* pBag = player->GetBagByPos(bag))
+        {
+            for (uint8 slot = 0; slot < pBag->GetBagSize(); ++slot)
+            {
+                Item* item = pBag->GetItemByPos(slot);
+                if (!item)
+                    continue;
+
+                if (sAbyssalStoragePlusMgr->ShouldAutoStore(
+                        player, item->GetTemplate(), &questReserved))
+                {
+                    toDeposit[item->GetEntry()] += item->GetCount();
+                }
+            }
+        }
+    }
+
+    // Default backpack.
+    for (uint8 slot = INVENTORY_SLOT_ITEM_START;
+         slot < INVENTORY_SLOT_ITEM_END; ++slot)
+    {
+        Item* item = player->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
+        if (!item)
+            continue;
+
+        if (sAbyssalStoragePlusMgr->ShouldAutoStore(
+                player, item->GetTemplate(), &questReserved))
+        {
+            toDeposit[item->GetEntry()] += item->GetCount();
+        }
+    }
+
+    uint32 depositedCount = 0;
+
+    // Destroy qualifying materials before crediting the vault.
+    for (auto const& [entry, count] : toDeposit)
+    {
+        uint32 playerHas = player->GetItemCount(entry);
+
+        auto reservedIt = questReserved.find(entry);
+        uint32 reserved = reservedIt != questReserved.end()
+            ? reservedIt->second : 0;
+
+        uint32 surplus = playerHas > reserved
+            ? playerHas - reserved : 0;
+
+        uint32 toMove = std::min(count, surplus);
+
+        if (toMove == 0)
+            continue;
+
+        player->DestroyItemCount(entry, toMove, true);
+
+        uint32 after = player->GetItemCount(entry);
+        uint32 destroyed = playerHas > after
+            ? playerHas - after : 0;
+
+        if (destroyed == 0)
+            continue;
+
+        sAbyssalStoragePlusMgr->DepositItem(
+            accountId, entry, destroyed);
+
+        ++depositedCount;
+    }
+
+    return depositedCount;
+}
+
+// Deposit materials from AI-controlled party members
+// belonging to the same WoW account as the owner.
+static uint32 DepositPartyAltBotMaterials(
+    Player* owner,
+    uint32 accountId)
+{
+#ifndef MOD_PLAYERBOTS
+    // Playerbots module not compiled.
+    (void)owner;
+    (void)accountId;
+    return 0;
+#else
+    if (!owner || !owner->GetGroup())
+        return 0;
+
+    uint32 depositedCount = 0;
+
+    Group* group = owner->GetGroup();
+
+    for (GroupReference* ref = group->GetFirstMember();
+         ref;
+         ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+
+        if (!member || member == owner)
+            continue;
+
+        if (!member->GetSession())
+            continue;
+
+        // Only characters belonging to the owner's account.
+        if (member->GetSession()->GetAccountId() != accountId)
+            continue;
+
+        // Must be an actual AI-controlled playerbot.
+        if (!sPlayerbotsMgr->GetPlayerbotAI(member))
+            continue;
+
+        depositedCount += DepositAllEligibleMaterials(
+            member, accountId);
+    }
+
+    return depositedCount;
+#endif
+}
+
 // ============================================================================
 // CommandScript — Player Commands
 // ============================================================================
@@ -1062,62 +1204,17 @@ public:
             return true;
         }
 
-        // Collect totals first — DestroyItemCount searches the whole inventory,
-        // so destroying during iteration can skip stacks of the same item
-        std::unordered_map<uint32, uint32> toDeposit; // itemEntry -> totalCount
+        // Deposit the requesting player's materials.
+        uint32 depositedCount = DepositAllEligibleMaterials(
+            player, accountId);
 
-        // One quest-log scan for the whole deposit
-        std::unordered_map<uint32, uint32> questReserved;
-        sAbyssalStoragePlusMgr->GetQuestReservedCounts(player, questReserved);
+        // Optionally include same-account party alt bots.
+        uint32 partyDepositedCount = 0;
 
-        for (uint8 bag = INVENTORY_SLOT_BAG_START; bag < INVENTORY_SLOT_BAG_END; ++bag)
+        if (sPartyAltBotDepositEnabled)
         {
-            if (Bag* pBag = player->GetBagByPos(bag))
-            {
-                for (uint8 slot = 0; slot < pBag->GetBagSize(); ++slot)
-                {
-                    Item* item = pBag->GetItemByPos(slot);
-                    if (!item)
-                        continue;
-
-                    if (sAbyssalStoragePlusMgr->ShouldAutoStore(player, item->GetTemplate(), &questReserved))
-                        toDeposit[item->GetEntry()] += item->GetCount();
-                }
-            }
-        }
-
-        // Also scan the default backpack (slots 23-38)
-        for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; ++slot)
-        {
-            Item* item = player->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
-            if (!item)
-                continue;
-
-            if (sAbyssalStoragePlusMgr->ShouldAutoStore(player, item->GetTemplate(), &questReserved))
-                toDeposit[item->GetEntry()] += item->GetCount();
-        }
-
-        // Now destroy and deposit in one pass per item entry
-        uint32 depositedCount = 0;
-        for (auto const& [entry, count] : toDeposit)
-        {
-            // Never move items an active quest still needs
-            uint32 playerHas = player->GetItemCount(entry);
-            auto reservedIt = questReserved.find(entry);
-            uint32 reserved = reservedIt != questReserved.end() ? reservedIt->second : 0;
-            uint32 surplus = playerHas > reserved ? playerHas - reserved : 0;
-            uint32 toMove = std::min(count, surplus);
-            if (toMove == 0)
-                continue;
-
-            player->DestroyItemCount(entry, toMove, true);
-            uint32 after = player->GetItemCount(entry);
-            uint32 destroyed = playerHas > after ? playerHas - after : 0;
-            if (destroyed == 0)
-                continue;
-
-            sAbyssalStoragePlusMgr->DepositItem(accountId, entry, destroyed);
-            ++depositedCount;
+            partyDepositedCount = DepositPartyAltBotMaterials(
+                player, accountId);
         }
 
         AbyssalPlayerData* data = GetAbyssalData(player);
@@ -1125,7 +1222,13 @@ public:
             data->autoStoreEnabled = true;
 
         sAbyssalStoragePlusMgr->BroadcastFullSync(accountId);
-        handler->PSendSysMessage("|cFF00B0E8Abyssal Storage Plus:|r Deposited {} item stacks.", depositedCount);
+
+        handler->PSendSysMessage(
+            "|cFF00B0E8Abyssal Storage Plus:|r "
+            "Deposited {} of your material types and "
+            "{} from same-account party alt bots.",
+            depositedCount,
+            partyDepositedCount);
 
         return true;
     }

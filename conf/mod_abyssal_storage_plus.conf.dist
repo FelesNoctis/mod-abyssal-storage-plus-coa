@@ -12,3 +12,13 @@
 #
 
 AbyssalStoragePlus.Enable = 1
+
+#
+#    AbyssalStoragePlus.PartyAltBotDeposit
+#        Description: Automatically deposit materials from same-account
+#        alt bots currently in the player's party, if bots are used.
+#        Default:     0 (Disabled)
+#                     1 (Enabled)
+#
+
+AbyssalStoragePlus.PartyAltBotDeposit = 0
