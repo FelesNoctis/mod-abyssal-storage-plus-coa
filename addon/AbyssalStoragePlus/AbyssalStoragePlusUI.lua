@@ -48,6 +48,48 @@ local displayList = {} -- { {entry=N, count=N, name="...", icon="..."}, ... }
 local searchFilter = ""
 local selectedCategory = "All"
 
+-- CoA Woodcutting (732) and Woodworking (757) materials.
+-- Only wood-specific materials are included.
+-- Shared reagents such as cloth, metal and gems are excluded.
+
+local COA_WOOD_MATERIALS = {
+    -- Logs
+    [8210210] = true, -- Forestwood Log
+    [8210211] = true, -- Wildwood Log
+    [8210212] = true, -- Everwood Log
+    [8210213] = true, -- Magical Green Wood Log
+    [8210215] = true, -- Grovewood Log
+    [8210217] = true, -- Heartwood Log
+
+    -- Planks
+    [8210230] = true, -- Forestwood Plank
+    [8210231] = true, -- Wildwood Plank
+    [8210232] = true, -- Everwood Plank
+    [8210233] = true, -- Grovewood Plank
+    [8210234] = true, -- Heartwood Plank
+
+    -- Woodworking components
+    [1006602] = true, -- Forestwood Shaft
+    [1006603] = true, -- Forestwood Fiber
+    [1006605] = true, -- Forestwood Page
+
+    [1006620] = true, -- Wildwood Shaft
+    [1006621] = true, -- Wildwood Fiber
+    [1006623] = true, -- Wildwood Page
+
+    [1006638] = true, -- Everwood Shaft
+    [1006639] = true, -- Everwood Fiber
+    [1006641] = true, -- Everwood Page
+
+    [1006656] = true, -- Grovewood Shaft
+    [1006657] = true, -- Grovewood Fiber
+    [1006659] = true, -- Grovewood Page
+
+    [1006674] = true, -- Heartwood Shaft
+    [1006675] = true, -- Heartwood Fiber
+    [1006677] = true, -- Heartwood Page
+}
+
 local CATEGORY_ORDER = {
     "All",
     "Cloth",
@@ -60,9 +102,15 @@ local CATEGORY_ORDER = {
     "Other",
 }
 
-local function GetItemCategory(itemType, itemSubType)
+
+local function GetItemCategory(entry, itemType, itemSubType)
     if itemType ~= "Trade Goods" then
         return "Other"
+    end
+
+    -- CoA wood-specific materials
+    if entry and COA_WOOD_MATERIALS[entry] then
+        return "Wood & Lumber"
     end
 
     itemSubType = itemSubType or ""
@@ -73,6 +121,7 @@ local function GetItemCategory(itemType, itemSubType)
     if itemSubType == "Herb" then return "Herbs" end
     if itemSubType == "Elemental" then return "Elemental" end
     if itemSubType == "Enchanting" then return "Enchanting" end
+
     return "Other"
 end
 
@@ -144,6 +193,11 @@ local function GetProfessionCategory(entry, itemType, itemSubType, itemName)
     if itemType == "Gem" then return "Jewelcrafting" end
     if itemType ~= "Trade Goods" then return "Other" end
 
+    -- CoA Woodcutting / Woodworking materials
+    if entry and COA_WOOD_MATERIALS[entry] then
+        return "Woodworking"
+    end
+
     local recipeCategory = entry and ABYSSAL_RECIPE_CATEGORIES[entry]
     if recipeCategory then return recipeCategory end
 
@@ -193,7 +247,7 @@ local function BuildDisplayList()
     wipe(displayList)
     for entry, count in pairs(AbyssalStoragePlus.items) do
         local name, itemType, itemSubType, icon = GetItemMeta(entry)
-        local category = GetItemCategory(itemType, itemSubType)
+        local category = GetItemCategory(entry, itemType, itemSubType)
         local categoryMatches = selectedCategory == "All" or category == selectedCategory
         if name then
             if categoryMatches and (searchFilter == "" or name:lower():find(searchFilter:lower(), 1, true)) then
