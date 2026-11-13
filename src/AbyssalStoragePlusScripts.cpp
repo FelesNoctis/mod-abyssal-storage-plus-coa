@@ -173,6 +173,9 @@ static uint32 PullQuestMaterials(Player* player, uint32 accountId, uint32 itemEn
     return pulled;
 }
 
+// Party alt-bot deposits are disabled by default.
+static bool sPartyAltBotDepositEnabled = false;
+
 // ============================================================================
 // WorldScript — Config Loading
 // ============================================================================
@@ -180,12 +183,18 @@ static uint32 PullQuestMaterials(Player* player, uint32 accountId, uint32 itemEn
 class AbyssalStoragePlusWorldScript : public WorldScript
 {
 public:
-    AbyssalStoragePlusWorldScript() : WorldScript("AbyssalStoragePlusWorldScript") { }
+    AbyssalStoragePlusWorldScript()
+        : WorldScript("AbyssalStoragePlusWorldScript") { }
 
     void OnAfterConfigLoad(bool /*reload*/) override
     {
-        sAbyssalStoragePlusMgr->SetEnabled(sConfigMgr->GetOption<bool>("AbyssalStoragePlus.Enable", true));
-        sPartyAltBotDepositEnabled->SetEnabled(sConfigMgr->GetOption<bool>("AbyssalStoragePlus.PartyAltBotDeposit", false));
+        sAbyssalStoragePlusMgr->SetEnabled(
+            sConfigMgr->GetOption<bool>(
+                "AbyssalStoragePlus.Enable", true));
+
+        sPartyAltBotDepositEnabled =
+            sConfigMgr->GetOption<bool>(
+                "AbyssalStoragePlus.PartyAltBotDeposit", false);
     }
 };
 
