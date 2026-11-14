@@ -1203,14 +1203,113 @@ hookFrame:SetScript("OnEvent", function(self, event)
         hooksecurefunc("OpenAllBags", function()
             -- Auctionator opens bags on tab click; don't auto-show there
             if AuctionFrame and AuctionFrame:IsShown() then return end
-            AbyssalStoragePlusFrame:Show()
+            -- AbyssalStoragePlusFrame:Show()
             AbyssalStoragePlus:UpdateUI()
         end)
         hooksecurefunc("CloseAllBags", function()
-            AbyssalStoragePlusFrame:Hide()
+            -- AbyssalStoragePlusFrame:Hide()
         end)
         self:UnregisterEvent("PLAYER_ENTERING_WORLD")
     end
+end)
+
+-- ============================================================================
+-- ElvUI Bag Integration
+-- ============================================================================
+
+local elvUIDepositButton = nil
+
+local function CreateElvUIDepositButton()
+    if elvUIDepositButton then
+        return true
+    end
+
+    -- Check whether ElvUI's bag frame exists.
+    local bagFrame = _G["ElvUI_ContainerFrame"]
+
+    if not bagFrame then
+        return false
+    end
+
+    local button = CreateFrame(
+        "Button",
+        "AbyssalStoragePlusElvUIDepositButton",
+        bagFrame,
+        "UIPanelButtonTemplate"
+    )
+
+    button:SetSize(100, 22)
+
+    -- Position directly above the ElvUI bag window.
+    button:SetPoint(
+        "BOTTOMLEFT",
+        bagFrame,
+        "TOPLEFT",
+        0,
+        4
+    )
+
+    button:SetText("Deposit All")
+
+    -- Deposit materials without opening the vault.
+    button:SetScript("OnClick", function()
+        AbyssalStoragePlus:Deposit()
+    end)
+
+    button:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:AddLine("Abyssal Storage Plus")
+        GameTooltip:AddLine(
+            "Deposit all eligible materials into account storage.",
+            1, 1, 1, true
+        )
+        GameTooltip:AddLine(
+            "Includes same-account party alt bots when enabled.",
+            0.7, 0.9, 1, true
+        )
+        GameTooltip:Show()
+    end)
+
+    button:SetScript("OnLeave", function()
+        GameTooltip:Hide()
+    end)
+
+    elvUIDepositButton = button
+
+    return true
+end
+
+-- ElvUI may initialize its bag frame after our addon loads.
+-- Retry briefly until the bag frame is available.
+local elvUIHookFrame = CreateFrame("Frame")
+
+elvUIHookFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+
+elvUIHookFrame:SetScript("OnEvent", function(self)
+    if CreateElvUIDepositButton() then
+        self:UnregisterEvent("PLAYER_ENTERING_WORLD")
+        return
+    end
+
+    self.elapsed = 0
+    self.waited = 0
+
+    self:SetScript("OnUpdate", function(frame, elapsed)
+        frame.elapsed = frame.elapsed + elapsed
+        frame.waited = frame.waited + elapsed
+
+        if frame.elapsed < 0.5 then
+            return
+        end
+
+        frame.elapsed = 0
+
+        if CreateElvUIDepositButton() or frame.waited >= 15 then
+            frame:SetScript("OnUpdate", nil)
+        end
+    end)
+
+    self:UnregisterEvent("PLAYER_ENTERING_WORLD")
 end)
 
 -- ============================================================================

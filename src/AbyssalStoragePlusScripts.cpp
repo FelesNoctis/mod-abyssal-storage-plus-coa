@@ -405,10 +405,10 @@ public:
             return;
 
         // Mail items never reach OnPlayerStoreNewItem, so queue them here
-        data->pendingDeposits.push_back({ item->GetEntry(), count, AbyssalAcquireSource::Mail });
+        data->pendingDeposits.push_back({ itemEntry, count, AbyssalAcquireSource::Mail });
 
         // Mail prints no loot line, so notify the client directly
-        sAbyssalStoragePlusMgr->SendVaultNotification(player, item->GetEntry(), count);
+        sAbyssalStoragePlusMgr->SendVaultNotification(player, itemEntry, count);
     }
 
     void OnPlayerUpdate(Player* player, uint32 /*p_time*/) override
@@ -864,7 +864,7 @@ static uint32 DepositPartyAltBotMaterials(
             continue;
 
         // Must be an actual AI-controlled playerbot.
-        if (!sPlayerbotsMgr->GetPlayerbotAI(member))
+        if (!sPlayerbotsMgr.GetPlayerbotAI(member))
             continue;
 
         depositedCount += DepositAllEligibleMaterials(
