@@ -1245,12 +1245,22 @@ local function CreateElvUIDepositButton()
         "BOTTOMLEFT",
         bagFrame,
         "TOPLEFT",
-        0,
-        4
+        5,
+        -27
     )
 
     button:SetText("Deposit All")
 
+	-- Apply ElvUI button skin
+	if ElvUI then
+		local E = unpack(ElvUI)
+		local S = E:GetModule("Skins")
+
+		if S and S.HandleButton then
+			S:HandleButton(button)
+		end
+	end
+    
     -- Deposit materials without opening the vault.
     button:SetScript("OnClick", function()
         AbyssalStoragePlus:Deposit()
