@@ -2,7 +2,10 @@
 #include "AccountMgr.h"
 #include "DatabaseEnv.h"
 #include "ItemTemplate.h"
+#include "Opcodes.h"
 #include "Player.h"
+#include "SpellInfo.h"
+#include "SpellMgr.h"
 #include "WorldPacket.h"
 #include "WorldSession.h"
 #include "WorldSessionMgr.h"
@@ -252,6 +255,8 @@ bool AbyssalStoragePlusMgr::IsAutoVaultEnabled(uint32 accountId, AbyssalAcquireS
             return settings.autoVaultQuestReward;
         case AbyssalAcquireSource::Vendor:
             return settings.autoVaultVendor;
+        case AbyssalAcquireSource::RollWin:
+            return false; // roll wins always stay in bags
         default:
             return false;
     }
@@ -304,6 +309,47 @@ static void SendOnePacket(Player* player, std::string const& msg)
     data << msg;
     data << uint8(0);
     player->GetSession()->SendPacket(&data);
+}
+
+// A vault entry the player has never held shows as "?" because the client's own
+// item query is not answered on this server, so it never learns the item. Play
+// the core's own item-query handler back for the entry: that sends the client a
+// real SMSG_ITEM_QUERY_SINGLE_RESPONSE, which is what caches it.
+static void WarmItemInfo(Player* player, uint32 itemEntry)
+{
+    if (!player || !itemEntry)
+        return;
+
+    WorldPacket query;
+    query.Initialize(CMSG_ITEM_QUERY_SINGLE, 4);
+    query << uint32(itemEntry);
+    player->GetSession()->HandleItemQuerySingleOpcode(query);
+}
+
+// Queue an item record for the client cache; each entry is sent once per session
+void AbyssalStoragePlusMgr::QueueItemWarm(Player* player, uint32 itemEntry)
+{
+    AbyssalPlayerData* data = GetAbyssalData(player);
+    if (data && itemEntry && data->warmed.insert(itemEntry).second)
+        data->warmQueue.push_back(itemEntry);
+}
+
+// Trickle queued records out so a cold client cache is never flooded
+void AbyssalStoragePlusMgr::PumpItemWarm(Player* player, AbyssalPlayerData* data, uint32 diff)
+{
+    if (!player || !data || data->warmQueue.empty())
+        return;
+
+    data->warmTimer += diff;
+    if (data->warmTimer < 100)
+        return;
+    data->warmTimer = 0;
+
+    for (uint8 i = 0; i < 6 && !data->warmQueue.empty(); ++i)
+    {
+        WarmItemInfo(player, data->warmQueue.back());
+        data->warmQueue.pop_back();
+    }
 }
 
 void AbyssalStoragePlusMgr::SendAddonMessage(Player* player, std::string const& message)
@@ -389,6 +435,58 @@ void AbyssalStoragePlusMgr::SendFullSync(Player* player)
     }
 
     SendAddonMessage(player, "SYNCE");
+
+    // Queue the item record for every vault entry so the client can draw the vault
+    // instead of leaving entries it has never held as "?". Sent paced, not in a burst.
+    if (items)
+        for (auto const& pair : *items)
+            QueueItemWarm(player, pair.first);
+}
+
+// "RCP:spell,entry,count,entry,count;..." for every known recipe with reagents.
+// Lets the client count craftable recipes without touching uncached item data.
+void AbyssalStoragePlusMgr::SendRecipeSync(Player* player)
+{
+    if (!player)
+        return;
+
+    std::string msg = "RCP:";
+    size_t const base = msg.size();
+
+    for (auto const& pair : player->GetSpellMap())
+    {
+        SpellInfo const* info = sSpellMgr->GetSpellInfo(pair.first);
+        if (!info || !info->HasAttribute(SPELL_ATTR0_IS_TRADESKILL) || !player->HasSpell(pair.first))
+            continue;
+
+        std::string entry = std::to_string(pair.first);
+        bool hasReagent = false;
+        for (uint8 i = 0; i < MAX_SPELL_REAGENTS; ++i)
+        {
+            if (info->Reagent[i] <= 0 || info->ReagentCount[i] == 0)
+                continue;
+
+            hasReagent = true;
+            entry += "," + std::to_string(info->Reagent[i]) + "," + std::to_string(info->ReagentCount[i]);
+            QueueItemWarm(player, uint32(info->Reagent[i]));
+        }
+
+        if (!hasReagent)
+            continue;
+
+        for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
+            if (info->Effects[i].Effect == SPELL_EFFECT_CREATE_ITEM ||
+                info->Effects[i].Effect == SPELL_EFFECT_CREATE_ITEM_2)
+                QueueItemWarm(player, info->Effects[i].ItemType);
+
+        if (msg.size() > base)
+            msg += ';';
+        msg += entry;
+    }
+
+    if (msg.size() > base)
+        SendAddonMessage(player, msg); // auto-split on ';'
+    SendAddonMessage(player, "RCPE");
 }
 
 void AbyssalStoragePlusMgr::SendItemUpdate(Player* player, uint32 itemEntry, uint32 count)
