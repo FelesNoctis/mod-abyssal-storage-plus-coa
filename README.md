@@ -9,7 +9,7 @@
 
 
 <details>
-  <summary>🔍$\color{#9370DB}{\text{View Table of Contents}}$</summary>
+  <summary>$\color{#9370DB}{\text{🔍View Table of Contents}}$</summary>
 
   ## Contents
   - [How it works](#how-it-works)
@@ -29,7 +29,7 @@
 **This mod was originally based on [mod-abyssal-storage](https://github.com/thanhtong89/mod-abyssal-storage)**
 If migrating from this mod, just replace the module & addon with mine. It still uses the same SQL database table name `abyssal_storage` so if you had items stored already, they will still be there.
 <details>
-  <summary>💠$\color{#2ea44f}{\text{View Major Differences}}$</summary>
+  <summary>$\color{#2ea44f}{\text{💠View Major Differences}}$</summary>
 
 <br>
 
@@ -135,12 +135,14 @@ If migrating from this mod, just replace the module & addon with mine. It still 
 
  - **Freezing/Crashing with a unbuilt cache** -  when you have an unbuilt cache (e.g. deleting client cache folder/or fresh client install), opening any profession crafting UI would cause a game crash or major freeze. 
 **2026-11-15** A fix has been added, the cache now rebuilds in the background, but you have to wait at least 20 seconds before opening a crafting interface. 
-$\color{red}{\text{DO NOT OPEN ANY PROFESSION INTERFACE STRAIGHT AWAY ON LOGIN WITH AN EMPTY CACHE}}$
-    - $\color{green}{\text{**Solution**  ➔  Wait at least 20 seconds on first login if you have an unbuilt cache before opening any profession interface.}}$
+$\color{red}{\text{DO NOT OPEN ANY PROFESSION INTERFACE STRAIGHT AWAY ON LOGIN WITH AN EMPTY CACHE}}$  
+$\color{green}{\text{Solution ➔ Wait at least 20 seconds on first login if you have an unbuilt cache before opening any profession interface.}}$
+
 <br>
+
 - **Right-clicking a material with a Right-Click `Use` option with the storage UI open, uses the material once and then deposits the rest.** 
 For example, with the vault open, right-clicking a stack of `Eternal Fire` deposits every stack except one, and that last one gets used and turns into `Crystallized Fire`. Attempts to override default blizzard behaviour causes taints on all useable items in bags. Only effects items with a right-click `USE` option, most materials unaffected.
-   - $\color{green}{\text{**Solution**  ➔  Use left-click to deposit single stack or deposit all instead of right-click to deposit materials with a right-click `USE` function.}}$
+$\color{green}{\text{Solution ➔ Use left-click to deposit single stack or deposit all instead of right-click to deposit materials with a right-click USE function.}}$
 
 
 ## Configuration
