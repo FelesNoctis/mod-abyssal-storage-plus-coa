@@ -161,6 +161,7 @@ AbyssalStoragePlus.Enable = 1
 
 ### 2026-11-15
 - Fix for crashing/freezing when opening a profession crafting interface with a fresh `itemcache.wdb` - See Known issues
+- Fix craft counter resetting to 1 after the first craft on queuing multiple crafts. Now correctly decrements by 1 on each successive craft.
 
 ### 2026-11-14
 - Added item query handling to cache all stored vault materials instantly, fixing "retrieving item information" and [?] icons for  uncached vault entries.

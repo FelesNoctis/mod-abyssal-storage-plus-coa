@@ -1658,12 +1658,41 @@ local function SyncEnchantPreparation(id)
     end
 end
 
+-- Vault crafts run on the server, so Blizzard's repeat count stays at 1 and the
+-- create box would reset on the first craft. Count the crafts here instead and
+-- write the remaining number back after every frame refresh.
+local craftRemaining = 0
+local craftRecipeName
+local craftExpires = 0
+local craftEventFrame
+
+local function ApplyCraftRemaining()
+    if craftRemaining <= 0 then return end
+    if GetTime() > craftExpires then
+        craftRemaining = 0
+        return
+    end
+    if TradeSkillInputBox and TradeSkillFrame and TradeSkillFrame:IsShown() then
+        TradeSkillInputBox:SetNumber(craftRemaining)
+    end
+end
+
+-- One cast succeeds per craft, so each one uses up one remaining craft
+local function OnCraftCastSucceeded(unit, name)
+    if craftRemaining <= 0 or unit ~= "player" then return end
+    if name and craftRecipeName and string.lower(name) ~= craftRecipeName then return end
+    craftRemaining = craftRemaining - 1
+    craftExpires = GetTime() + 6
+    ApplyCraftRemaining()
+end
+
 local function WrappedDoTradeSkill(id, repeatCount)
     if tradeDisabled or IsTradeSkillLinked() then
         return origDoTradeSkill(id, repeatCount)
     end
     if not id or id <= 0 then return end
 
+    craftRemaining = 0
     local name, skillType = origGetTradeSkillInfo(id)
     if not name or skillType == "header" then return end
     if (origGetTradeSkillNumReagents(id) or 0) == 0 then
@@ -1711,6 +1740,11 @@ local function WrappedDoTradeSkill(id, repeatCount)
 
     local craftCount = math.min(repeatCount, totalMax)
     AbyssalStoragePlus:SendCommand("asp craft " .. spellId .. " " .. craftCount)
+
+    craftRemaining = craftCount
+    craftRecipeName = string.lower(name)
+    craftExpires = GetTime() + 6
+    ApplyCraftRemaining()
 end
 
 local function ApplyTradeScroll()
@@ -1922,6 +1956,7 @@ local function WrappedTradeSkillUpdate()
     local ok, err = pcall(UpdateTradeSkillInternal)
     customUpdating = false
     if not ok then ReportTradeError(err) end
+    ApplyCraftRemaining()
 end
 
 local function WrappedTradeSkillEvent(self, event, ...)
@@ -1935,6 +1970,7 @@ local function WrappedTradeSkillEvent(self, event, ...)
     end
     local ok, err = pcall(origTradeSkillEvent, self, event, ...)
     if not ok then ReportTradeError(err) end
+    ApplyCraftRemaining()
 end
 
 local function WrappedOnlyShowMakeableImpl(filter)
@@ -2094,9 +2130,17 @@ local function HookTradeSkill()
     TradeSkillFrame:HookScript("OnHide", function()
         tradeResetScroll = false
         tradeScrollToSelected = false
+        craftRemaining = 0
         if tradeRefreshFrame then tradeRefreshFrame:Hide() end
         RevaultPrepared()
         InvalidateTradeCache()
+    end)
+
+    -- Count server-side vault crafts so the create box can show what is left
+    craftEventFrame = CreateFrame("Frame")
+    craftEventFrame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+    craftEventFrame:SetScript("OnEvent", function(_, _, unit, name)
+        OnCraftCastSucceeded(unit, name)
     end)
 
     -- Pull reagents for item-target recipes on hover so the first click can cast
