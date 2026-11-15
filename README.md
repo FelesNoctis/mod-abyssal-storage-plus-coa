@@ -4,12 +4,12 @@
 
 ### How it works
 **Storing** - Automatically deposits obtained profession materials into a shared account-wide vault. You can Enable/Disable what gets auto-deposited based on acquisition method (Loot/Craft/Mail/VendorBuy/QuestReward). Your vaulted materials are visible and easily managed via the included addon interface.  
-<br>
+
 **Crafting** - The profession crafting interface displays your vaulted materials seamlessly. When crafting it automatically use materials straight from the vault. IF the recipe requires a target item (e.g. enchanting) it will pull materials to your bags first (hardcoded limitation).
-<br>
+
 
 <details>
-  <summary>🔍 View Table of Contents</summary>
+  <summary>🔍$\color{#9370DB}{\text{View Table of Contents}}$</summary>
 
   ## Contents
   - [How it works](#how-it-works)
@@ -29,11 +29,9 @@
 **This mod was originally based on [mod-abyssal-storage](https://github.com/thanhtong89/mod-abyssal-storage)**
 If migrating from this mod, just replace the module & addon with mine. It still uses the same SQL database table name `abyssal_storage` so if you had items stored already, they will still be there.
 <details>
-<summary>>> <b> Click Here to see some of the major Differences </b> <<</summary>
+  <summary>💠$\color{#2ea44f}{\text{View Major Differences}}$</summary>
 
-<table>
-  <tr>
-    <td background-color="#14eebf">  
+<br>
 
  ![New Feature](https://img.shields.io/badge/The%20Main%20Differences%20Include-blue)  
 - <kbd>**MAJOR UPDATE**</kbd> A rewrite of how vaulted materials are handled in the crafting interface. Now completely integrates vaulted materials into the default UI instead of using an overlay.
@@ -47,6 +45,7 @@ If migrating from this mod, just replace the module & addon with mine. It still 
 - Better Auto-Vault visibility - Whenever an item is looted and instantly vaulted, replaces default "You receive loot:" system messages with "You vaulted  material:" system message instead. Works for all enabled acquisition methods.
 - The claimed quest integration (pull materials on quest turn-in) was non-functional. Added entirely new logic - Accepting a quest that requires materials will auto pull the full or partial amount of materials from your vault if they exist. Any looted materials that are required for active-quests are excluded from auto-deposit up to the required amount. Also prints an informative message, Example: "Abyssal Storage Plus: Pulled [Lean Wolf Flank] x8 from storage for quest [Seasoned Wolf Kabobs]; 2 still needed.".
 - For recipes that required a target item e.g. Enchanting, socket item; the original mod only pulled materials and gave an error on clicking the modify/enchant button. Plus version now pulls the materials preemptively on hovering over the "Enchant/Modify" button so that it only requires a single click to function. Selecting another recipe or exiting the profession UI returns pulled materials to the vault.
+- Added auto-caching of vaulted materials, so if your cache is deleted or you use a fresh client all your stored materials are instantly cached on login. Fixes "Retrieving Item Information" and a Red [?] icon for all stored materials.
 - Added a new clean *modern interface* that sorts by profession instead of material type, this is the new default. see screenshots below, you can switch between Modern/Classic anytime by clicking the switch icon in the top-left.
 - Improved abyssal storage addon interface and functionality (Classic UI). Thanks to [Tntdruid](https://github.com/Tntdruid) for some of his contributions.
 - Now able to easily deposit per-material via right-click when abyssal storage interface is open (Deposit All was the only option before). Also added per item SFX feedback when depositing/withdrawing (same used for banks).
@@ -59,6 +58,8 @@ If migrating from this mod, just replace the module & addon with mine. It still 
   </tr>
 </table>
 </details>
+
+---
 
 ## Features
 - **Auto-deposit**: Profession materials are automatically vaulted when picked up
@@ -131,8 +132,16 @@ If migrating from this mod, just replace the module & addon with mine. It still 
 | `/asp help` | List all commands in chat |
 
 ## Known Issues
-- **Right-clicking a material with a Right-Click `Use` option with the storage UI open, uses the material once and then deposits the rest.** Bag clicks are handled with a secure post-hook, which runs *after* Blizzard's own click, so the addon cannot cancel the use. For example, with the vault open, right-clicking a stack of `Eternal Fire` deposits every stack except one, and that last one gets used and turns into `Crystallized Fire`. Attempts to get around this causes taints on all on-use items. Only materials with an on-use effect are affected; ordinary trade goods and gems deposit exactly as expected.
-- **Item Retrieving Information** - If you delete your game cache, items may show a red question mark with `Retrieving Item Information` in the tooltip. This is a general client-limitation. Items need to be re-queried since you haven't seen them and cached them yet. Hovering over each item should query the server and update the items icon/description the next time you reopen the interface.
+
+ - **Freezing/Crashing with a unbuilt cache** -  when you have an unbuilt cache (e.g. deleting client cache folder/or fresh client install), opening any profession crafting UI would cause a game crash or major freeze. 
+**2026-11-15** A fix has been added, the cache now rebuilds in the background, but you have to wait at least 20 seconds before opening a crafting interface. 
+$\color{red}{\text{DO NOT OPEN ANY PROFESSION INTERFACE STRAIGHT AWAY ON LOGIN WITH AN EMPTY CACHE}}$
+    - $\color{green}{\text{**Solution**  ➔  Wait at least 20 seconds on first login if you have an unbuilt cache before opening any profession interface.}}$
+<br>
+- **Right-clicking a material with a Right-Click `Use` option with the storage UI open, uses the material once and then deposits the rest.** 
+For example, with the vault open, right-clicking a stack of `Eternal Fire` deposits every stack except one, and that last one gets used and turns into `Crystallized Fire`. Attempts to override default blizzard behaviour causes taints on all useable items in bags. Only effects items with a right-click `USE` option, most materials unaffected.
+   - $\color{green}{\text{**Solution**  ➔  Use left-click to deposit single stack or deposit all instead of right-click to deposit materials with a right-click `USE` function.}}$
+
 
 ## Configuration
 In `mod_abyssal_storage_plus.conf`:
@@ -149,6 +158,12 @@ AbyssalStoragePlus.Enable = 1
 5. Copy the `addon/AbyssalStoragePlus` folder into your WoW `Interface/AddOns` directory
 
 ## Changelog
+
+### 2026-11-15
+- Fix for crashing/freezing when opening a profession crafting interface with a fresh `itemcache.wdb` - See Known issues
+
+### 2026-11-14
+- Added item query handling to cache all stored vault materials instantly, fixing "retrieving item information" and [?] icons for  uncached vault entries.
 
 ### 2026-11-13
 - Fixed deposit/withdraw playing two item sounds at once. Deposit now plays the item's own material "place" cue exactly once by briefly moving the item within its real bag slot, instead of faking a cursor pickup. Withdraw keeps its single "pickup" cue.

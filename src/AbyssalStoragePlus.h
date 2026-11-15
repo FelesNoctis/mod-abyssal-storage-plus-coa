@@ -82,6 +82,9 @@ struct AbyssalPlayerData : public DataMap::Base
     uint64 pendingRecastItemGuid = 0; // raw GUID of that recipe's item target
     uint32 pendingReagentSpell = 0; // item-target craft that still owes reagents
     bool craftPayPending = false; // vault-backed craft whose product awaits payment
+    std::vector<uint32> warmQueue;      // item records still to push to the client cache
+    std::unordered_set<uint32> warmed;  // entries already queued this session
+    uint32 warmTimer = 0;               // ms since the last warm batch
 };
 
 AbyssalPlayerData* GetAbyssalData(Player* player);
@@ -117,12 +120,17 @@ public:
     // Messaging helpers
     void SendAddonMessage(Player* player, std::string const& message);
     void SendFullSync(Player* player);
+    void SendRecipeSync(Player* player);
     void SendItemUpdate(Player* player, uint32 itemEntry, uint32 count);
     void SendItemDelete(Player* player, uint32 itemEntry);
     void SendVaultNotice(Player* player, uint32 itemEntry, uint32 count);
     void SendVaultNotification(Player* player, uint32 itemEntry, uint32 count);
     void BroadcastItemUpdate(uint32 accountId, uint32 itemEntry);
     void BroadcastFullSync(uint32 accountId);
+
+    // Paced item-record push so a cold client cache is never flooded
+    void QueueItemWarm(Player* player, uint32 itemEntry);
+    void PumpItemWarm(Player* player, AbyssalPlayerData* data, uint32 diff);
 
     bool IsEnabled() const { return _enabled; }
     void SetEnabled(bool enabled) { _enabled = enabled; }

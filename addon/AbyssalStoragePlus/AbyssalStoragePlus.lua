@@ -3,6 +3,7 @@ AbyssalStoragePlus = AbyssalStoragePlus or {}
 AbyssalStoragePlus.items = {} -- { [itemEntry] = count }
 AbyssalStoragePlus.totals = {} -- { [itemEntry] = bagPlusVault }
 AbyssalStoragePlus.totalsAt = {} -- { [itemEntry] = GetTime() }
+AbyssalStoragePlus.recipes = {} -- { [spellId] = { entry, count, entry, count, ... } }
 AbyssalStoragePlus.vaultVersion = 0
 AbyssalStoragePlus.PREFIX = "ABYS"
 AbyssalStoragePlusDB = AbyssalStoragePlusDB or {}
@@ -188,6 +189,14 @@ function AbyssalStoragePlus:RequestSync()
     self:SendCommand("asp sync")
 end
 
+-- Ask for the recipe reagent table; throttled so lookups cannot spam the server
+function AbyssalStoragePlus:RequestRecipes()
+    local now = GetTime()
+    if self._recipesAt and now - self._recipesAt < 10 then return end
+    self._recipesAt = now
+    self:SendCommand("asp recipes")
+end
+
 -- ============================================================================
 -- Message Parsing
 -- ============================================================================
@@ -223,6 +232,12 @@ function AbyssalStoragePlus:HandleMessage(msg)
         self:RequestUIUpdate()
     elseif cmd == "SYNC" then
         self:HandleSync(payload)
+    elseif cmd == "RCP" then
+        self:HandleRecipes(payload)
+    elseif cmd == "RCPE" then
+        -- Bumping the version invalidates the trade skill count cache
+        self.vaultVersion = self.vaultVersion + 1
+        self:RequestUIUpdate()
     elseif cmd == "UPD" then
         self:HandleUpdate(payload)
     elseif cmd == "DEL" then
@@ -233,6 +248,20 @@ function AbyssalStoragePlus:HandleMessage(msg)
         self:HandleVaultNotice(payload)
     elseif cmd == "VAULTN" then
         self:HandleVaultNotification(payload)
+    end
+end
+
+-- "spell,entry,count,entry,count;spell,..." -> recipes[spell] = { entry, count, ... }
+function AbyssalStoragePlus:HandleRecipes(payload)
+    for part in (payload or ""):gmatch("[^;]+") do
+        local spell, rest = part:match("^(%d+),([%d,]+)$")
+        if spell then
+            local r = {}
+            for n in rest:gmatch("%d+") do
+                r[#r + 1] = tonumber(n)
+            end
+            self.recipes[tonumber(spell)] = r
+        end
     end
 end
 
@@ -477,6 +506,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, arg2, ...)
         end
     elseif event == "PLAYER_LOGIN" then
         AbyssalStoragePlus:RequestSync()
+        AbyssalStoragePlus:RequestRecipes()
         ApplyDefaultDepositBinding()
     end
 end)

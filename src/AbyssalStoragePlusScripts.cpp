@@ -508,7 +508,7 @@ public:
         sAbyssalStoragePlusMgr->SendVaultNotification(player, item->GetEntry(), count);
     }
 
-    void OnPlayerUpdate(Player* player, uint32 /*p_time*/) override
+    void OnPlayerUpdate(Player* player, uint32 p_time) override
     {
         if (!sAbyssalStoragePlusMgr->IsEnabled() || !player)
             return;
@@ -542,6 +542,9 @@ public:
                     "|cFF00B0E8Abyssal Storage Plus:|r Could not complete the craft; nothing was taken.");
             }
         }
+
+        // Trickle queued item records to the client cache
+        sAbyssalStoragePlusMgr->PumpItemWarm(player, data, p_time);
 
         if (data->pendingDeposits.empty())
             return;
@@ -935,6 +938,7 @@ public:
             { "withdraw", HandleWithdrawCommand,  SEC_PLAYER, Console::No },
             { "deposit",  HandleDepositCommand,   SEC_PLAYER, Console::No },
             { "sync",     HandleSyncCommand,      SEC_PLAYER, Console::No },
+            { "recipes",  HandleRecipesCommand,   SEC_PLAYER, Console::No },
             { "settings", HandleSettingsCommand, SEC_PLAYER, Console::No },
             { "craft",    HandleCraftCommand,      SEC_PLAYER, Console::No },
             { "prepare",  HandlePrepareCommand,    SEC_PLAYER, Console::No },
@@ -1334,6 +1338,20 @@ public:
 
         sAbyssalStoragePlusMgr->SendFullSync(player);
         handler->PSendSysMessage("|cFF00B0E8Abyssal Storage Plus:|r Sync complete.");
+        return true;
+    }
+
+    // .asp recipes - send the known-recipe reagent table the addon uses for counts
+    static bool HandleRecipesCommand(ChatHandler* handler)
+    {
+        if (!sAbyssalStoragePlusMgr->IsEnabled())
+            return false;
+
+        Player* player = handler->GetSession()->GetPlayer();
+        if (!player || sAbyssalStoragePlusMgr->IsBotAccount(player))
+            return false;
+
+        sAbyssalStoragePlusMgr->SendRecipeSync(player);
         return true;
     }
 
