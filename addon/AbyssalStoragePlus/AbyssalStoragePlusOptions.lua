@@ -5,7 +5,7 @@ AbyssalStoragePlusDB = AbyssalStoragePlusDB or {}
 local SETTING_ROWS = {
     { key = "loot",   label = "Auto-vault materials on Loot",                   default = true },
     { key = "craft",  label = "Auto-vault materials on Craft",                  default = false },
-    { key = "mail",   label = "Auto-vault materials on Opening Mail",           default = false },
+    { key = "mail",   label = "Auto-vault materials on Opening Mail",           default = false, hidden = true },
     { key = "quest",  label = "Auto-vault materials on Quest Reward",           default = false },
     { key = "vendor", label = "Auto-vault materials on Vendor Buys",            default = false },
     { key = "accept", label = "Auto-withdraw quest materials on Quest Accept",  default = true },
@@ -15,7 +15,9 @@ local SETTING_ROWS = {
 local function GetSettings()
     AbyssalStoragePlusDB.settings = AbyssalStoragePlusDB.settings or {}
     for _, row in ipairs(SETTING_ROWS) do
-        if AbyssalStoragePlusDB.settings[row.key] == nil then
+        if row.hidden then
+            AbyssalStoragePlusDB.settings[row.key] = false
+        elseif AbyssalStoragePlusDB.settings[row.key] == nil then
             AbyssalStoragePlusDB.settings[row.key] = row.default
         end
     end
@@ -48,23 +50,27 @@ note:SetText("Settings apply account-wide and take effect immediately.")
 panel.refresh = function()
     local settings = GetSettings()
     for _, row in ipairs(SETTING_ROWS) do
-        row.check:SetChecked(settings[row.key])
+        if row.check then
+            row.check:SetChecked(settings[row.key])
+        end
     end
 end
 
 local offsetY = -66
 for _, row in ipairs(SETTING_ROWS) do
-    local check = CreateFrame("CheckButton", "AbyssalStoragePlusOptions" .. row.key, panel, "InterfaceOptionsCheckButtonTemplate")
-    check:SetPoint("TOPLEFT", 16, offsetY)
-    _G[check:GetName() .. "Text"]:SetText(row.label)
-    check.key = row.key
-    check:SetScript("OnClick", function(self)
-        -- GetChecked() returns nil when unchecked in 3.3.5
-        GetSettings()[self.key] = self:GetChecked() and true or false
-        SendSettings()
-    end)
-    row.check = check
-    offsetY = offsetY - 26
+    if not row.hidden then
+        local check = CreateFrame("CheckButton", "AbyssalStoragePlusOptions" .. row.key, panel, "InterfaceOptionsCheckButtonTemplate")
+        check:SetPoint("TOPLEFT", 16, offsetY)
+        _G[check:GetName() .. "Text"]:SetText(row.label)
+        check.key = row.key
+        check:SetScript("OnClick", function(self)
+            -- GetChecked() returns nil when unchecked in 3.3.5
+            GetSettings()[self.key] = self:GetChecked() and true or false
+            SendSettings()
+        end)
+        row.check = check
+        offsetY = offsetY - 26
+    end
 end
 
 InterfaceOptions_AddCategory(panel)

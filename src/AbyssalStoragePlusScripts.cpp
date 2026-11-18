@@ -308,7 +308,7 @@ public:
         PLAYERHOOK_ON_PLAYER_QUEST_ACCEPT,
         PLAYERHOOK_ON_SPELL_CAST,
         PLAYERHOOK_ON_QUEST_REWARD_ITEM,
-        PLAYERHOOK_ON_AFTER_TAKE_MAIL_ITEM,
+//        PLAYERHOOK_ON_AFTER_TAKE_MAIL_ITEM,
         PLAYERHOOK_ON_BEFORE_STORE_OR_EQUIP_NEW_ITEM,
         PLAYERHOOK_ON_CREATE_ITEM
     }) { }
@@ -492,7 +492,7 @@ public:
         }
     }
 
-    void OnPlayerAfterTakeMailItem(Player* player, uint32 itemEntry, uint32 count) override
+/*     void OnPlayerAfterTakeMailItem(Player* player, uint32 itemEntry, uint32 count) override
     {
         if (!sAbyssalStoragePlusMgr->IsEnabled() || !player || !itemEntry)
             return;
@@ -523,7 +523,7 @@ public:
 
         // Mail prints no loot line, so notify the client directly
         sAbyssalStoragePlusMgr->SendVaultNotification(player, itemEntry, count);
-    }
+    } */
 
     void OnPlayerUpdate(Player* player, uint32 p_time) override
     {
